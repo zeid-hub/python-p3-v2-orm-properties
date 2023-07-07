@@ -2,102 +2,531 @@
 
 ## Learning Goals
 
-- Learning goal 1.
-- Learning goal 2.
+- Evolve attributes to properties.
+- Adapt ORM methods to validate object state with properties
 
-***
+---
 
 ## Key Vocab
 
-- **Vocab Term**: definition. Continuation of definition.
+- **Object-Relational Mapping (ORM)**: a programming technique that provides a
+  mapping between an object-oriented data model and a relational database model.
+- **Attribute**: variables that belong to an object.
+- **Property**: attributes that are controlled by methods.
+- **Decorator**: function that takes another function as an argument and returns
+  a new function with added functionality.
 
-***
+---
 
 ## Introduction
 
-Lorem ipsum dolor sit amet. Ut velit fugit et porro voluptas quia sequi quo
-libero autem qui similique placeat eum velit autem aut repellendus quia. Et
-Quis magni ut fugit obcaecati in expedita fugiat est iste rerum qui ipsam
-ducimus et quaerat maxime sit eaque minus. Est molestias voluptatem et nostrum
-recusandae qui incidunt Quis 33 ipsum perferendis sed similique architecto.
+Let's update our company data model to add some constraints on the `Department`
+and `Employee` attributes:
 
-Sed ipsam quidem eum minima maxime et commodi dolores quo ipsa maxime aut vero
-consectetur id velit dignissimos. Et fuga porro eum galisum suscipit qui esse
-blanditiis sed explicabo officia aut mollitia error est illo earum et sint
-laborum! Sit aspernatur accusantium aut doloribus saepe est magni quod aut
-molestiae voluptatem.
+- The `Department` name and location must be non-empty strings.
+- The `Employee` name and and job title must be non-empty strings.
+- The `Employee` department id must be a valid foreign key reference to an
+  existing `Department`.
 
-Vel inventore minus aut ullam maiores sit internos cupiditate eos odit totam
-eos molestiae galisum. Et ipsum provident ut nihil dicta et dicta doloremque
-eum magnam ullam ut quibusdam quaerat.
+We have a choice of either performing validation within the database schema
+itself, or validating within our Python classes prior to persisting object data
+to the database. We'll pick the later approach, validating within the Python
+classes. We'll do this by evolving the attributes to properties. The property
+setter methods will ensure the attributes are assigned valid values.
 
-***
+---
 
-## Lesson Section
+## Code Along
 
-Lorem ipsum dolor sit amet. Ut velit fugit et porro voluptas quia sequi quo
-libero autem qui similique placeat eum velit autem aut repellendus quia. Et
-Quis magni ut fugit obcaecati in expedita fugiat est iste rerum qui ipsam
-ducimus et quaerat maxime sit eaque minus. Est molestias voluptatem et nostrum
-recusandae qui incidunt Quis 33 ipsum perferendis sed similique architecto.
+This lesson is a code-along, so fork and clone the repo.
+
+**NOTE: Remember to run `pipenv install` to install the dependencies and
+`pipenv shell` to enter your virtual environment before running your code.**
+
+```bash
+pipenv install
+pipenv shell
+```
+
+## Evolve `Department` attributes to properties
+
+We'll start by evolving the `Department` attributes `name` and `location` to be
+properties, as shown in the code below. The setter methods will check for
+non-empty string values prior to updating the object state:
 
 ```py
-# python code block
-print("statement")
-# => statement
+class Department:
+
+    all = []
+
+    def __init__(self, name, location, id=None):
+        self.id = id
+        self.name = name
+        self.location = location
+
+    def __repr__(self):
+        return f"<Department {self.id}: {self.name}, {self.location}>"
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        if isinstance(name, str) and len(name) > 0:
+            self._name = name
+        else:
+            raise ValueError(
+                "Name cannot be empty and must be a string"
+            )
+
+    @property
+    def location(self):
+        return self._location
+
+    @location.setter
+    def location(self, location):
+        if isinstance(location, str) and len(location) > 0:
+            self._location = location
+        else:
+            raise ValueError(
+                "Location cannot be empty and must be a string"
+            )
+
+    # Existing ORM methods ....
+
 ```
 
-```js
-// javascript code block
-console.log("use these for comparisons between languages.")
-// => use these for comparisons between languages.
+We'll also update the `Employee` class to evolve the `name`, `job_title` and
+`department_id` attributes to properties. Note the `department_id` setter method
+checks to ensure we are assigning a valid department by checking the foreign key
+reference in the database:
+
+```py
+class Employee:
+
+    def __init__(self, name, job_title, department_id, id=None):
+        self.id = id
+        self.name = name
+        self.job_title = job_title
+        self.department_id = department_id
+
+    def __repr__(self):
+        return (
+            f"<Employee {self.id}: {self.name}, {self.job_title}, "
+            + f"Department ID: {self.department_id} >"
+        )
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        if isinstance(name, str) and len(name) > 0:
+            self._name = name
+        else:
+            raise ValueError(
+                "Name cannot be empty and must be a string"
+            )
+
+    @property
+    def job_title(self):
+        return self._job_title
+
+    @job_title.setter
+    def job_title(self, job_title):
+        if isinstance(job_title, str) and len(job_title) > 0:
+            self._job_title = job_title
+        else:
+            raise ValueError(
+                "job_title cannot be empty and must be a string"
+            )
+
+    @property
+    def department_id(self):
+        return self._department_id
+
+    @department_id.setter
+    def department_id(self, department_id):
+        from department import Department
+        if isinstance(department_id, int) and Department.find_by_id(department_id) is not None:
+            self._department_id = department_id
+        else:
+            raise ValueError(
+                "Department ID must be integer and reference existing department in db")
+
+     # Existing ORM methods ....
+
 ```
 
-```console
-echo "bash/zshell statement"
-# => bash/zshell statement
+The `lib/testing` folder has two new test files for testing the properties,
+`department_property_test.py` and `employee_property_test.py`. Run the tests to
+ensure the property validations work correctly:
+
+```bash
+pytest -x
 ```
 
-<details>
-  <summary>
-    <em>Check for understanding text goes here! <code>Code statements go here.</code></em>
-  </summary>
+You can also use an `ipdb` session to test the properties.
 
-  <h3>Answer.</h3>
-  <p>Elaboration on answer.</p>
-</details>
-<br/>
+```bash
+python lib/debug.py
+```
 
-***
+The `debug.py` file seeds the tables with data. We can attempt to assign invalid
+values:
 
-## Instructions
+```py
+ipdb> Department.get_all()
+[<Department 1: Payroll, Building A, 5th Floor>, <Department 2: Human Resources, Building C, East Wing>]
+ipdb> payroll = Department.find_by_name("Payroll")
+ipdb> payroll
+<Department 1: Payroll, Building A, 5th Floor>
+ipdb> payroll.location = 7
+*** ValueError: Location cannot be empty and must be a string
+ipdb>
+```
 
-This is a **test-driven lab**. Run `pipenv install` to create your virtual
-environment and `pipenv shell` to enter the virtual environment. Then run
-`pytest -x` to run your tests. Use these instructions and `pytest`'s error
-messages to complete your work in the `lib/` folder.
+Let's try to set an invalid department id for an employee:
 
-Instructions begin here:
-
-- Make sure to specify any class, method, variable, module, package names
-  that `pytest` will check for.
-- Any other instructions go here.
-
-Once all of your tests are passing, commit and push your work using `git` to
-submit.
-
-***
+```bash
+ipdb> employee = Employee.find_by_id(1)
+ipdb> employee
+<Employee 1: Tiffany Horn, Database Administrator, Department ID: 1 >
+ipdb> employee.department_id = 1000
+*** ValueError: Department ID must be integer and reference existing department in db
+ipdb>
+```
 
 ## Conclusion
 
-Conclusion summary paragraph. Include common misconceptions and what students
-will be able to do moving forward.
+Properties control the values we assign to Python object attributes. We can use
+property setter methods to ensure we assign valid values prior to persisting
+objects to the database.
 
-***
+## Solution Code
 
-## Resources
+```py
+from config import CURSOR, CONN
+from employee import Employee
 
-- [Resource 1](https://www.python.org/doc/essays/blurb/)
-- [Reused Resource][reused resource]
 
-[reused resource]: https://docs.python.org/3/
+class Department:
+
+    all = []
+
+    def __init__(self, name, location, id=None):
+        self.id = id
+        self.name = name
+        self.location = location
+
+    def __repr__(self):
+        return f"<Department {self.id}: {self.name}, {self.location}>"
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        if isinstance(name, str) and len(name) > 0:
+            self._name = name
+        else:
+            raise ValueError(
+                "Name cannot be empty and must be a string"
+            )
+
+    @property
+    def location(self):
+        return self._location
+
+    @location.setter
+    def location(self, location):
+        if isinstance(location, str) and len(location) > 0:
+            self._location = location
+        else:
+            raise ValueError(
+                "Location cannot be empty and must be a string"
+            )
+
+    @classmethod
+    def create_table(cls):
+        """ Create a new table to persist the attributes of Department class instances """
+        sql = """
+            CREATE TABLE IF NOT EXISTS departments (
+            id INTEGER PRIMARY KEY,
+            name TEXT,
+            location TEXT)
+        """
+        CURSOR.execute(sql)
+        CONN.commit()
+
+    @classmethod
+    def drop_table(cls):
+        """ Drop the table that persists Department class instances """
+        sql = """
+            DROP TABLE IF EXISTS departments;
+        """
+        CURSOR.execute(sql)
+        CONN.commit()
+
+    def save(self):
+        """ Insert a new row with the name and location values of the current Department object.
+        Update object id attribute using the primary key value of new row"""
+        sql = """
+            INSERT INTO departments (name, location)
+            VALUES (?, ?)
+        """
+
+        CURSOR.execute(sql, (self.name, self.location))
+        CONN.commit()
+
+        self.id = CURSOR.lastrowid
+
+    @classmethod
+    def create(cls, name, location):
+        """ Initialize a new Department object and save the object to the database """
+        department = Department(name, location)
+        department.save()
+        return department
+
+    def update(self):
+        """Update the table row corresponding to the current Department object."""
+        sql = """
+            UPDATE departments
+            SET name = ?, location = ?
+            WHERE id = ?
+        """
+        CURSOR.execute(sql, (self.name, self.location, self.id))
+        CONN.commit()
+
+    def delete(self):
+        """Delete the table row corresponding to the current Department class instance"""
+        sql = """
+            DELETE FROM departments
+            WHERE id = ?
+        """
+
+        CURSOR.execute(sql, (self.id,))
+        CONN.commit()
+
+    @classmethod
+    def new_from_db(cls, row):
+        """Return a new Department object using the values from the table row."""
+        department = cls(row[1], row[2])
+        department.id = row[0]
+        return department
+
+    @classmethod
+    def get_all(cls):
+        """Return a list containing a new Department object for each row in the table"""
+        sql = """
+            SELECT *
+            FROM departments
+        """
+
+        rows = CURSOR.execute(sql).fetchall()
+
+        cls.all = [cls.new_from_db(row) for row in rows]
+        return cls.all
+
+    @classmethod
+    def find_by_id(cls, id):
+        """Return a new Department object corresponding to the table row matching the specified primary key"""
+        sql = """
+            SELECT *
+            FROM departments
+            WHERE id = ?
+        """
+
+        row = CURSOR.execute(sql, (id,)).fetchone()
+        return cls.new_from_db(row) if row else None
+
+    @classmethod
+    def find_by_name(cls, name):
+        """Return a new Department object corresponding to first table row matching specified name"""
+        sql = """
+            SELECT *
+            FROM departments
+            WHERE name is ?
+        """
+
+        row = CURSOR.execute(sql, (name,)).fetchone()
+        return cls.new_from_db(row) if row else None
+
+    def employees(self):
+        sql = """
+            SELECT * FROM employees
+            WHERE department_id = ?
+        """
+        CURSOR.execute(sql, (self.id,),)
+
+        rows = CURSOR.fetchall()
+        return [
+            Employee(row[1], row[2], row[3], row[0]) for row in rows
+        ]
+
+```
+
+```py
+from config import CURSOR, CONN
+
+
+class Employee:
+
+    def __init__(self, name, job_title, department_id, id=None):
+        self.id = id
+        self.name = name
+        self.job_title = job_title
+        self.department_id = department_id
+
+    def __repr__(self):
+        return (
+            f"<Employee {self.id}: {self.name}, {self.job_title}, "
+            + f"Department ID: {self.department_id} >"
+        )
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        if isinstance(name, str) and len(name) > 0:
+            self._name = name
+        else:
+            raise ValueError(
+                "Name cannot be empty and must be a string"
+            )
+
+    @property
+    def job_title(self):
+        return self._job_title
+
+    @job_title.setter
+    def job_title(self, job_title):
+        if isinstance(job_title, str) and len(job_title) > 0:
+            self._job_title = job_title
+        else:
+            raise ValueError(
+                "job_title cannot be empty and must be a string"
+            )
+
+    @property
+    def department_id(self):
+        return self._department_id
+
+    @department_id.setter
+    def department_id(self, department_id):
+        from department import Department
+        if isinstance(department_id, int) and Department.find_by_id(department_id) is not None:
+            self._department_id = department_id
+        else:
+            raise ValueError(
+                "Department ID must be integer and reference existing department in db")
+
+    @classmethod
+    def create_table(cls):
+        sql = """
+            CREATE TABLE IF NOT EXISTS employees (
+            id INTEGER PRIMARY KEY,
+            name TEXT,
+            job_title TEXT,
+            department_id INTEGER,
+            FOREIGN KEY (department_id) REFERENCES departments(id))
+        """
+        CURSOR.execute(sql)
+        CONN.commit()
+
+    @classmethod
+    def drop_table(cls):
+        """ Drop the table that persists Employee class instances """
+        sql = """
+            DROP TABLE IF EXISTS employees;
+        """
+        CURSOR.execute(sql)
+        CONN.commit()
+
+    def save(self):
+        sql = """
+            INSERT INTO employees (name, job_title, department_id)
+            VALUES (?, ?, ?)
+        """
+
+        CURSOR.execute(sql, (self.name, self.job_title, self.department_id))
+        CONN.commit()
+
+        self.id = CURSOR.lastrowid
+
+    def update(self):
+        sql = """
+            UPDATE employees
+            SET name = ?, job_title = ?, department_id = ?
+            WHERE id = ?
+        """
+        CURSOR.execute(sql, (self.name, self.job_title,
+                       self.department_id, self.id))
+        CONN.commit()
+
+    def delete(self):
+        sql = """
+            DELETE FROM employees
+            WHERE id = ?
+        """
+
+        CURSOR.execute(sql, (self.id,))
+        CONN.commit()
+
+    @classmethod
+    def create(cls, name, job_title, department_id):
+        """ Initialize a new Employee object and save the object to the database """
+        employee = Employee(name, job_title, department_id)
+        employee.save()
+        return employee
+
+    @classmethod
+    def new_from_db(cls, row):
+        """Initialize a new Employee object using the values from the table row."""
+        employee = cls(row[1], row[2], row[3])
+        employee.id = row[0]
+        return employee
+
+    @classmethod
+    def get_all(cls):
+        """Return a list containing one Employee object per table row"""
+        sql = """
+            SELECT *
+            FROM employees
+        """
+
+        rows = CURSOR.execute(sql).fetchall()
+
+        cls.all = [cls.new_from_db(row) for row in rows]
+        return cls.all
+
+    @classmethod
+    def find_by_id(cls, id):
+        """Return Employee object corresponding to the table row matching the specified primary key"""
+        sql = """
+            SELECT *
+            FROM employees
+            WHERE id = ?
+        """
+
+        row = CURSOR.execute(sql, (id,)).fetchone()
+        return cls.new_from_db(row) if row else None
+
+    @classmethod
+    def find_by_name(cls, name):
+        """Return Employee object corresponding to first table row matching specified name"""
+        sql = """
+            SELECT *
+            FROM employees
+            WHERE name is ?
+        """
+
+        row = CURSOR.execute(sql, (name,)).fetchone()
+        return cls.new_from_db(row) if row else None
+
+```
