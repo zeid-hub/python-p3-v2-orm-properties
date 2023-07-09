@@ -1,10 +1,7 @@
 from config import CURSOR, CONN
-from employee import Employee
 
 
 class Department:
-
-    all = []
 
     def __init__(self, name, location, id=None):
         self.id = id
@@ -120,6 +117,7 @@ class Department:
         return cls.new_from_db(row) if row else None
 
     def employees(self):
+        from employee import Employee
         sql = """
             SELECT * FROM employees
             WHERE department_id = ?
@@ -128,5 +126,5 @@ class Department:
 
         rows = CURSOR.fetchall()
         return [
-            Employee(row[1], row[2], row[3], row[0]) for row in rows
+            Employee(row[1], row[2], self, row[0]) for row in rows
         ]

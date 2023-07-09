@@ -212,13 +212,13 @@ class TestDepartment:
             "Human Resources", "Building C, 2nd Floor")
 
         Employee.create_table()
-        employee1 = Employee.create("Raha", "Accountant", department1.id)
+        employee1 = Employee.create("Raha", "Accountant", department1)
         employee2 = Employee.create(
-            "Tal", "Benefits Coordinator", department1.id)
+            "Tal", "Benefits Coordinator", department1)
 
         employees = department1.employees()
         assert (len(employees) == 2)
-        assert ((employees[0].id, employees[0].name, employees[0].job_title, employees[0].department_id) ==
-                (employee1.id, employee1.name, employee1.job_title, employee1.department_id))
-        assert ((employees[1].id, employees[1].name, employees[1].job_title, employees[1].department_id) ==
-                (employee2.id, employee2.name, employee2.job_title, employee2.department_id))
+        assert ((employees[0].id, employees[0].name, employees[0].job_title, employees[0].department.id) ==
+                (employee1.id, employee1.name, employee1.job_title, employee1.department.id))
+        assert ((employees[1].id, employees[1].name, employees[1].job_title, employees[1].department.id) ==
+                (employee2.id, employee2.name, employee2.job_title, employee2.department.id))

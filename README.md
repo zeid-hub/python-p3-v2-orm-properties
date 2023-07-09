@@ -25,8 +25,8 @@ and `Employee` attributes:
 
 - The `Department` name and location must be non-empty strings.
 - The `Employee` name and and job title must be non-empty strings.
-- The `Employee` department id must be a valid foreign key reference to an
-  existing `Department`.
+- The `Employee` department must reference `Department` object that has been
+  persisted to the database.
 
 We have a choice of either performing validation within the database schema
 itself, or validating within our Python classes prior to persisting object data
@@ -55,9 +55,9 @@ properties, as shown in the code below. The setter methods will check for
 non-empty string values prior to updating the object state:
 
 ```py
-class Department:
+from config import CURSOR, CONN
 
-    all = []
+class Department:
 
     def __init__(self, name, location, id=None):
         self.id = id
@@ -98,23 +98,27 @@ class Department:
 ```
 
 We'll also update the `Employee` class to evolve the `name`, `job_title` and
-`department_id` attributes to properties. Note the `department_id` setter method
+`department` attributes to properties. Note the `department` setter method
 checks to ensure we are assigning a valid department by checking the foreign key
 reference in the database:
 
 ```py
+from config import CURSOR, CONN
+from department import Department
+
+
 class Employee:
 
-    def __init__(self, name, job_title, department_id, id=None):
+    def __init__(self, name, job_title, department, id=None):
         self.id = id
         self.name = name
         self.job_title = job_title
-        self.department_id = department_id
+        self.department = department
 
     def __repr__(self):
         return (
             f"<Employee {self.id}: {self.name}, {self.job_title}, "
-            + f"Department ID: {self.department_id} >"
+            + f"Department: {self.department.name} >"
         )
 
     @property
@@ -144,17 +148,16 @@ class Employee:
             )
 
     @property
-    def department_id(self):
-        return self._department_id
+    def department(self):
+        return self._department
 
-    @department_id.setter
-    def department_id(self, department_id):
-        from department import Department
-        if isinstance(department_id, int) and Department.find_by_id(department_id) is not None:
-            self._department_id = department_id
+    @department.setter
+    def department(self, department):
+        if isinstance(department, Department) and Department.find_by_id(department.id) is not None:
+            self._department = department
         else:
             raise ValueError(
-                "Department ID must be integer and reference existing department in db")
+                "Department must be class instance and reference existing entity in database")
 
      # Existing ORM methods ....
 
@@ -174,8 +177,8 @@ You can also use an `ipdb` session to test the properties.
 python lib/debug.py
 ```
 
-The `debug.py` file seeds the tables with data. We can attempt to assign invalid
-values:
+The `debug.py` file seeds the tables with random data. We can attempt to assign
+invalid values (NOTE: your data will look different):
 
 ```py
 ipdb> Department.get_all()
@@ -193,10 +196,11 @@ Let's try to set an invalid department id for an employee:
 ```bash
 ipdb> employee = Employee.find_by_id(1)
 ipdb> employee
-<Employee 1: Tiffany Horn, Database Administrator, Department ID: 1 >
-ipdb> employee.department_id = 1000
-*** ValueError: Department ID must be integer and reference existing department in db
-ipdb>
+<Employee 1: Courtney Riley, Manager, Department: Payroll >
+ipdb> employee.department = 1000
+*** ValueError: Department must be class instance and reference existing entity in database
+ipdb> employee.department = Department("HR", "building b") #not persisted in db
+*** ValueError: Department must be class instance and reference existing entity in database
 ```
 
 ## Conclusion

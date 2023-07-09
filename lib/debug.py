@@ -23,9 +23,9 @@ def reset_database():
     fake = Faker()
     jobs = ["Database Administrator", "Manager",
             "Full-stack Engineer", "Web Designer"]
-    for i in range(10):
+    for i in range(5):
         Employee.create(fake.name(), random.choice(
-            jobs), random.choice(departments).id)
+            jobs), random.choice(departments))
 
 
 reset_database()
