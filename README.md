@@ -213,12 +213,9 @@ objects to the database.
 
 ```py
 from config import CURSOR, CONN
-from employee import Employee
 
 
 class Department:
-
-    all = []
 
     def __init__(self, name, location, id=None):
         self.id = id
@@ -360,6 +357,7 @@ class Department:
         return cls.new_from_db(row) if row else None
 
     def employees(self):
+        from employee import Employee
         sql = """
             SELECT * FROM employees
             WHERE department_id = ?
@@ -368,27 +366,28 @@ class Department:
 
         rows = CURSOR.fetchall()
         return [
-            Employee(row[1], row[2], row[3], row[0]) for row in rows
+            Employee(row[1], row[2], self, row[0]) for row in rows
         ]
 
 ```
 
 ```py
 from config import CURSOR, CONN
+from department import Department
 
 
 class Employee:
 
-    def __init__(self, name, job_title, department_id, id=None):
+    def __init__(self, name, job_title, department, id=None):
         self.id = id
         self.name = name
         self.job_title = job_title
-        self.department_id = department_id
+        self.department = department
 
     def __repr__(self):
         return (
             f"<Employee {self.id}: {self.name}, {self.job_title}, "
-            + f"Department ID: {self.department_id} >"
+            + f"Department: {self.department.name} >"
         )
 
     @property
@@ -418,17 +417,16 @@ class Employee:
             )
 
     @property
-    def department_id(self):
-        return self._department_id
+    def department(self):
+        return self._department
 
-    @department_id.setter
-    def department_id(self, department_id):
-        from department import Department
-        if isinstance(department_id, int) and Department.find_by_id(department_id) is not None:
-            self._department_id = department_id
+    @department.setter
+    def department(self, department):
+        if isinstance(department, Department) and Department.find_by_id(department.id) is not None:
+            self._department = department
         else:
             raise ValueError(
-                "Department ID must be integer and reference existing department in db")
+                "Department must be class instance and reference existing entity in database")
 
     @classmethod
     def create_table(cls):
@@ -458,7 +456,7 @@ class Employee:
             VALUES (?, ?, ?)
         """
 
-        CURSOR.execute(sql, (self.name, self.job_title, self.department_id))
+        CURSOR.execute(sql, (self.name, self.job_title, self.department.id))
         CONN.commit()
 
         self.id = CURSOR.lastrowid
@@ -470,8 +468,15 @@ class Employee:
             WHERE id = ?
         """
         CURSOR.execute(sql, (self.name, self.job_title,
-                       self.department_id, self.id))
+                             self.department.id, self.id))
         CONN.commit()
+
+    @classmethod
+    def create(cls, name, job_title, department):
+        """ Initialize a new Employee object and save the object to the database """
+        employee = Employee(name, job_title, department)
+        employee.save()
+        return employee
 
     def delete(self):
         sql = """
@@ -483,16 +488,10 @@ class Employee:
         CONN.commit()
 
     @classmethod
-    def create(cls, name, job_title, department_id):
-        """ Initialize a new Employee object and save the object to the database """
-        employee = Employee(name, job_title, department_id)
-        employee.save()
-        return employee
-
-    @classmethod
     def new_from_db(cls, row):
         """Initialize a new Employee object using the values from the table row."""
-        employee = cls(row[1], row[2], row[3])
+        department = Department.find_by_id(row[3])
+        employee = cls(row[1], row[2], department)
         employee.id = row[0]
         return employee
 

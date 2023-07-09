@@ -13,7 +13,46 @@ class Employee:
     def __repr__(self):
         return (
             f"<Employee {self.id}: {self.name}, {self.job_title}, "
-            + f"Department: {self.department.name} >")
+            + f"Department: {self.department.name} >"
+        )
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        if isinstance(name, str) and len(name) > 0:
+            self._name = name
+        else:
+            raise ValueError(
+                "Name cannot be empty and must be a string"
+            )
+
+    @property
+    def job_title(self):
+        return self._job_title
+
+    @job_title.setter
+    def job_title(self, job_title):
+        if isinstance(job_title, str) and len(job_title) > 0:
+            self._job_title = job_title
+        else:
+            raise ValueError(
+                "job_title cannot be empty and must be a string"
+            )
+
+    @property
+    def department(self):
+        return self._department
+
+    @department.setter
+    def department(self, department):
+        if isinstance(department, Department) and Department.find_by_id(department.id) is not None:
+            self._department = department
+        else:
+            raise ValueError(
+                "Department must be class instance and reference existing entity in database")
 
     @classmethod
     def create_table(cls):
