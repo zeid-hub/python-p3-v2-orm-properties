@@ -31,8 +31,9 @@ and `Employee` attributes:
 We have a choice of either performing validation within the database schema
 itself, or validating within our Python classes prior to persisting object data
 to the database. We'll pick the later approach, validating within the Python
-classes. We'll do this by evolving the attributes to properties. The property
-setter methods will ensure the attributes are assigned valid values.
+classes. We'll do this by evolving the attributes to be managed by property
+methods. The setter methods will ensure the attributes are assigned valid
+values.
 
 ---
 
@@ -50,9 +51,10 @@ pipenv shell
 
 ## Evolve `Department` attributes to properties
 
-We'll start by evolving the `Department` attributes `name` and `location` to be
-properties, as shown in the code below. The setter methods will check for
-non-empty string values prior to updating the object state:
+We'll start by evolving the `Department` class to add property methods to manage
+the `name` and `location` attributes, as shown in the code below. The setter
+methods will check for non-empty string values prior to updating the object
+state:
 
 ```py
 from config import CURSOR, CONN
@@ -97,10 +99,10 @@ class Department:
 
 ```
 
-We'll also update the `Employee` class to evolve the `name`, `job_title` and
-`department` attributes to properties. Note the `department` setter method
-checks to ensure we are assigning a valid department by checking the foreign key
-reference in the database:
+We'll also update the `Employee` class to add property methods to manage the
+`name`, `job_title` and `department` attributes. Note the `department` setter
+method checks to ensure we are assigning a valid department by checking the
+foreign key reference in the database:
 
 ```py
 from config import CURSOR, CONN
@@ -205,9 +207,9 @@ ipdb> employee.department = Department("HR", "building b") #not persisted in db
 
 ## Conclusion
 
-Properties control the values we assign to Python object attributes. We can use
-property setter methods to ensure we assign valid values prior to persisting
-objects to the database.
+Properties manage the access and mutation of attributes. We can use property
+setter methods to ensure we assign valid values prior to persisting objects to
+the database.
 
 ## Solution Code
 
