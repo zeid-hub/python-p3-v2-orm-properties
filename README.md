@@ -25,15 +25,11 @@ and `Employee` attributes:
 
 - The `Department` name and location must be non-empty strings.
 - The `Employee` name and and job title must be non-empty strings.
-- The `Employee` department must reference `Department` object that has been
-  persisted to the database.
+- The `Employee` department_id must be a foreign key reference to a `Department`
+  object that has been persisted to the database.
 
-We have a choice of either performing validation within the database schema
-itself, or validating within our Python classes prior to persisting object data
-to the database. We'll pick the later approach, validating within the Python
-classes. We'll do this by evolving the attributes to be managed by property
-methods. The setter methods will ensure the attributes are assigned valid
-values.
+We'll evolve the attributes to be managed by property methods, with setter
+methods that ensure the attributes are assigned valid values.
 
 ---
 
@@ -57,7 +53,7 @@ methods will check for non-empty string values prior to updating the object
 state:
 
 ```py
-from config import CURSOR, CONN
+from __init__ import CURSOR, CONN
 
 class Department:
 
@@ -79,7 +75,7 @@ class Department:
             self._name = name
         else:
             raise ValueError(
-                "Name cannot be empty and must be a string"
+                "Name must be a non-empty string"
             )
 
     @property
@@ -92,7 +88,7 @@ class Department:
             self._location = location
         else:
             raise ValueError(
-                "Location cannot be empty and must be a string"
+                "Location must be a non-empty string"
             )
 
     # Existing ORM methods ....
@@ -100,12 +96,12 @@ class Department:
 ```
 
 We'll also update the `Employee` class to add property methods to manage the
-`name`, `job_title` and `department` attributes. Note the `department` setter
-method checks to ensure we are assigning a valid department by checking the
-foreign key reference in the database:
+`name`, `job_title` and `department_id` attributes. Note the `department_id`
+setter method checks to ensure we are assigning a valid department by checking
+the foreign key reference in the database:
 
 ```py
-from config import CURSOR, CONN
+from __init__ import CURSOR, CONN
 from department import Department
 
 
@@ -123,7 +119,7 @@ class Employee:
             + f"Department: {self.department.name} >"
         )
 
-    @property
+        @property
     def name(self):
         return self._name
 
@@ -133,7 +129,7 @@ class Employee:
             self._name = name
         else:
             raise ValueError(
-                "Name cannot be empty and must be a string"
+                "Name must be a non-empty string"
             )
 
     @property
@@ -146,20 +142,20 @@ class Employee:
             self._job_title = job_title
         else:
             raise ValueError(
-                "job_title cannot be empty and must be a string"
+                "job_title must be a non-empty string"
             )
 
     @property
-    def department(self):
-        return self._department
+    def department_id(self):
+        return self._department_id
 
-    @department.setter
-    def department(self, department):
-        if isinstance(department, Department) and Department.find_by_id(department.id) is not None:
-            self._department = department
+    @department_id.setter
+    def department_id(self, department_id):
+        if Department.find_by_id(department_id):
+            self._department_id = department_id
         else:
             raise ValueError(
-                "Department must be class instance and reference existing entity in database")
+                "department_id must reference a department in the database")
 
      # Existing ORM methods ....
 
@@ -189,7 +185,7 @@ ipdb> payroll = Department.find_by_name("Payroll")
 ipdb> payroll
 <Department 1: Payroll, Building A, 5th Floor>
 ipdb> payroll.location = 7
-*** ValueError: Location cannot be empty and must be a string
+*** ValueError: Location must be a non-empty string
 ipdb>
 ```
 
@@ -198,11 +194,9 @@ Let's try to set an invalid department id for an employee:
 ```bash
 ipdb> employee = Employee.find_by_id(1)
 ipdb> employee
-<Employee 1: Courtney Riley, Manager, Department: Payroll >
-ipdb> employee.department = 1000
-*** ValueError: Department must be class instance and reference existing entity in database
-ipdb> employee.department = Department("HR", "building b") #not persisted in db
-*** ValueError: Department must be class instance and reference existing entity in database
+<Employee 1: Amir, Accountant, Department ID: 1>
+ipdb> employee.department_id = 1000
+*** ValueError: department_id must reference a department in the database
 ```
 
 ## Conclusion
@@ -214,10 +208,13 @@ the database.
 ## Solution Code
 
 ```py
-from config import CURSOR, CONN
+from __init__ import CURSOR, CONN
 
 
 class Department:
+
+    # Dictionary for mapping a table row to a persisted class instance.
+    all = {}
 
     def __init__(self, name, location, id=None):
         self.id = id
@@ -237,7 +234,7 @@ class Department:
             self._name = name
         else:
             raise ValueError(
-                "Name cannot be empty and must be a string"
+                "Name must be a non-empty string"
             )
 
     @property
@@ -250,7 +247,7 @@ class Department:
             self._location = location
         else:
             raise ValueError(
-                "Location cannot be empty and must be a string"
+                "Location must be a non-empty string"
             )
 
     @classmethod
@@ -276,7 +273,8 @@ class Department:
 
     def save(self):
         """ Insert a new row with the name and location values of the current Department object.
-        Update object id attribute using the primary key value of new row"""
+        Update object id attribute using the primary key value of new row.
+        Save the object in local dictionary using table row's PK as dictionary key"""
         sql = """
             INSERT INTO departments (name, location)
             VALUES (?, ?)
@@ -286,6 +284,7 @@ class Department:
         CONN.commit()
 
         self.id = CURSOR.lastrowid
+        Department.all[self.id] = self
 
     @classmethod
     def create(cls, name, location):
@@ -315,15 +314,25 @@ class Department:
         CONN.commit()
 
     @classmethod
-    def new_from_db(cls, row):
-        """Return a new Department object using the values from the table row."""
-        department = cls(row[1], row[2])
-        department.id = row[0]
+    def instance_from_db(cls, row):
+        """Return a Department object having the attribute values from the table row."""
+
+        # Check the dictionary for an existing class instance using the row's primary key
+        department = Department.all.get(row[0])
+        if department:
+            # ensure attributes match row values in case local object was modified
+            department.name = row[1]
+            department.location = row[2]
+        # not in dictionary, create new class instance and add to dictionary
+        else:
+            department = cls(row[1], row[2])
+            department.id = row[0]
+            Department.all[department.id] = department
         return department
 
     @classmethod
     def get_all(cls):
-        """Return a list containing a new Department object for each row in the table"""
+        """Return a list containing a Department object per row in the table"""
         sql = """
             SELECT *
             FROM departments
@@ -331,12 +340,11 @@ class Department:
 
         rows = CURSOR.execute(sql).fetchall()
 
-        cls.all = [cls.new_from_db(row) for row in rows]
-        return cls.all
+        return [cls.instance_from_db(row) for row in rows]
 
     @classmethod
     def find_by_id(cls, id):
-        """Return a new Department object corresponding to the table row matching the specified primary key"""
+        """Return a Department object corresponding to the table row matching the specified primary key"""
         sql = """
             SELECT *
             FROM departments
@@ -344,11 +352,11 @@ class Department:
         """
 
         row = CURSOR.execute(sql, (id,)).fetchone()
-        return cls.new_from_db(row) if row else None
+        return cls.instance_from_db(row) if row else None
 
     @classmethod
     def find_by_name(cls, name):
-        """Return a new Department object corresponding to first table row matching specified name"""
+        """Return a Department object corresponding to first table row matching specified name"""
         sql = """
             SELECT *
             FROM departments
@@ -356,9 +364,10 @@ class Department:
         """
 
         row = CURSOR.execute(sql, (name,)).fetchone()
-        return cls.new_from_db(row) if row else None
+        return cls.instance_from_db(row) if row else None
 
     def employees(self):
+        """Return list of employees associated with current department"""
         from employee import Employee
         sql = """
             SELECT * FROM employees
@@ -368,28 +377,31 @@ class Department:
 
         rows = CURSOR.fetchall()
         return [
-            Employee(row[1], row[2], self, row[0]) for row in rows
+            Employee.instance_from_db(row) for row in rows
         ]
-
 ```
 
 ```py
-from config import CURSOR, CONN
+from __init__ import CURSOR, CONN
 from department import Department
 
 
 class Employee:
 
-    def __init__(self, name, job_title, department, id=None):
+    # Dictionary for mapping a table row to a persisted class instance.
+    all = {}
+
+    def __init__(self, name, job_title, department_id, id=None):
         self.id = id
         self.name = name
         self.job_title = job_title
-        self.department = department
+        self.department_id = department_id
 
     def __repr__(self):
         return (
-            f"<Employee {self.id}: {self.name}, {self.job_title}, "
-            + f"Department: {self.department.name} >"
+            f"<Employee {self.id}: {self.name}, {self.job_title}, " +
+            f"Department ID: {self.department_id}>"
+
         )
 
     @property
@@ -402,7 +414,7 @@ class Employee:
             self._name = name
         else:
             raise ValueError(
-                "Name cannot be empty and must be a string"
+                "Name must be a non-empty string"
             )
 
     @property
@@ -415,23 +427,24 @@ class Employee:
             self._job_title = job_title
         else:
             raise ValueError(
-                "job_title cannot be empty and must be a string"
+                "job_title must be a non-empty string"
             )
 
     @property
-    def department(self):
-        return self._department
+    def department_id(self):
+        return self._department_id
 
-    @department.setter
-    def department(self, department):
-        if isinstance(department, Department) and Department.find_by_id(department.id) is not None:
-            self._department = department
+    @department_id.setter
+    def department_id(self, department_id):
+        if Department.find_by_id(department_id):
+            self._department_id = department_id
         else:
             raise ValueError(
-                "Department must be class instance and reference existing entity in database")
+                "department_id must reference a department in the database")
 
     @classmethod
     def create_table(cls):
+        """ Create a new table to persist the attributes of Employee class instances """
         sql = """
             CREATE TABLE IF NOT EXISTS employees (
             id INTEGER PRIMARY KEY,
@@ -453,34 +466,33 @@ class Employee:
         CONN.commit()
 
     def save(self):
+        """ Insert a new row with the name, job title, and department id values of the current Employee object.
+        Update object id attribute using the primary key value of new row.
+        Save the object in local dictionary using table row's PK as dictionary key"""
         sql = """
-            INSERT INTO employees (name, job_title, department_id)
-            VALUES (?, ?, ?)
+                INSERT INTO employees (name, job_title, department_id)
+                VALUES (?, ?, ?)
         """
 
-        CURSOR.execute(sql, (self.name, self.job_title, self.department.id))
+        CURSOR.execute(sql, (self.name, self.job_title, self.department_id))
         CONN.commit()
 
         self.id = CURSOR.lastrowid
+        Employee.all[self.id] = self
 
     def update(self):
+        """Update the table row corresponding to the current Employee object."""
         sql = """
             UPDATE employees
             SET name = ?, job_title = ?, department_id = ?
             WHERE id = ?
         """
         CURSOR.execute(sql, (self.name, self.job_title,
-                             self.department.id, self.id))
+                             self.department_id, self.id))
         CONN.commit()
 
-    @classmethod
-    def create(cls, name, job_title, department):
-        """ Initialize a new Employee object and save the object to the database """
-        employee = Employee(name, job_title, department)
-        employee.save()
-        return employee
-
     def delete(self):
+        """Delete the row corresponding to the current Employee object"""
         sql = """
             DELETE FROM employees
             WHERE id = ?
@@ -490,11 +502,28 @@ class Employee:
         CONN.commit()
 
     @classmethod
-    def new_from_db(cls, row):
-        """Initialize a new Employee object using the values from the table row."""
-        department = Department.find_by_id(row[3])
-        employee = cls(row[1], row[2], department)
-        employee.id = row[0]
+    def create(cls, name, job_title, department_id):
+        """ Initialize a new Employee object and save the object to the database """
+        employee = Employee(name, job_title, department_id)
+        employee.save()
+        return employee
+
+    @classmethod
+    def instance_from_db(cls, row):
+        """Return an Employee object having the attribute values from the table row."""
+
+        # Check the dictionary for  existing class instance using the row's primary key
+        employee = Employee.all.get(row[0])
+        if employee:
+            # ensure attributes match row values in case local object was modified
+            employee.name = row[1]
+            employee.job_title = row[2]
+            employee.department_id = row[3]
+        # not in dictionary, create new class instance and add to dictionary
+        else:
+            employee = cls(row[1], row[2], row[3])
+            employee.id = row[0]
+            Employee.all[employee.id] = employee
         return employee
 
     @classmethod
@@ -507,8 +536,7 @@ class Employee:
 
         rows = CURSOR.execute(sql).fetchall()
 
-        cls.all = [cls.new_from_db(row) for row in rows]
-        return cls.all
+        return [cls.instance_from_db(row) for row in rows]
 
     @classmethod
     def find_by_id(cls, id):
@@ -520,7 +548,7 @@ class Employee:
         """
 
         row = CURSOR.execute(sql, (id,)).fetchone()
-        return cls.new_from_db(row) if row else None
+        return cls.instance_from_db(row) if row else None
 
     @classmethod
     def find_by_name(cls, name):
@@ -532,6 +560,5 @@ class Employee:
         """
 
         row = CURSOR.execute(sql, (name,)).fetchone()
-        return cls.new_from_db(row) if row else None
-
+        return cls.instance_from_db(row) if row else None
 ```

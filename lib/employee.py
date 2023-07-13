@@ -1,23 +1,28 @@
-from config import CURSOR, CONN
+from __init__ import CURSOR, CONN
 from department import Department
 
 
 class Employee:
 
-    def __init__(self, name, job_title, department, id=None):
+    # Dictionary for mapping a table row to a persisted class instance.
+    all = {}
+
+    def __init__(self, name, job_title, department_id, id=None):
         self.id = id
         self.name = name
         self.job_title = job_title
-        self.department = department
+        self.department_id = department_id
 
     def __repr__(self):
         return (
-            f"<Employee {self.id}: {self.name}, {self.job_title}, "
-            + f"Department: {self.department.name} >"
+            f"<Employee {self.id}: {self.name}, {self.job_title}, " +
+            f"Department ID: {self.department_id}>"
+
         )
 
     @classmethod
     def create_table(cls):
+        """ Create a new table to persist the attributes of Employee class instances """
         sql = """
             CREATE TABLE IF NOT EXISTS employees (
             id INTEGER PRIMARY KEY,
@@ -39,34 +44,33 @@ class Employee:
         CONN.commit()
 
     def save(self):
+        """ Insert a new row with the name, job title, and department id values of the current Employee object.
+        Update object id attribute using the primary key value of new row.
+        Save the object in local dictionary using table row's PK as dictionary key"""
         sql = """
-            INSERT INTO employees (name, job_title, department_id)
-            VALUES (?, ?, ?)
+                INSERT INTO employees (name, job_title, department_id)
+                VALUES (?, ?, ?)
         """
 
-        CURSOR.execute(sql, (self.name, self.job_title, self.department.id))
+        CURSOR.execute(sql, (self.name, self.job_title, self.department_id))
         CONN.commit()
 
         self.id = CURSOR.lastrowid
+        Employee.all[self.id] = self
 
     def update(self):
+        """Update the table row corresponding to the current Employee object."""
         sql = """
             UPDATE employees
             SET name = ?, job_title = ?, department_id = ?
             WHERE id = ?
         """
         CURSOR.execute(sql, (self.name, self.job_title,
-                             self.department.id, self.id))
+                             self.department_id, self.id))
         CONN.commit()
 
-    @classmethod
-    def create(cls, name, job_title, department):
-        """ Initialize a new Employee object and save the object to the database """
-        employee = Employee(name, job_title, department)
-        employee.save()
-        return employee
-
     def delete(self):
+        """Delete the row corresponding to the current Employee object"""
         sql = """
             DELETE FROM employees
             WHERE id = ?
@@ -76,11 +80,28 @@ class Employee:
         CONN.commit()
 
     @classmethod
-    def new_from_db(cls, row):
-        """Initialize a new Employee object using the values from the table row."""
-        department = Department.find_by_id(row[3])
-        employee = cls(row[1], row[2], department)
-        employee.id = row[0]
+    def create(cls, name, job_title, department_id):
+        """ Initialize a new Employee object and save the object to the database """
+        employee = Employee(name, job_title, department_id)
+        employee.save()
+        return employee
+
+    @classmethod
+    def instance_from_db(cls, row):
+        """Return an Employee object having the attribute values from the table row."""
+
+        # Check the dictionary for  existing class instance using the row's primary key
+        employee = Employee.all.get(row[0])
+        if employee:
+            # ensure attributes match row values in case local object was modified
+            employee.name = row[1]
+            employee.job_title = row[2]
+            employee.department_id = row[3]
+        # not in dictionary, create new class instance and add to dictionary
+        else:
+            employee = cls(row[1], row[2], row[3])
+            employee.id = row[0]
+            Employee.all[employee.id] = employee
         return employee
 
     @classmethod
@@ -93,8 +114,7 @@ class Employee:
 
         rows = CURSOR.execute(sql).fetchall()
 
-        cls.all = [cls.new_from_db(row) for row in rows]
-        return cls.all
+        return [cls.instance_from_db(row) for row in rows]
 
     @classmethod
     def find_by_id(cls, id):
@@ -106,7 +126,7 @@ class Employee:
         """
 
         row = CURSOR.execute(sql, (id,)).fetchone()
-        return cls.new_from_db(row) if row else None
+        return cls.instance_from_db(row) if row else None
 
     @classmethod
     def find_by_name(cls, name):
@@ -118,4 +138,4 @@ class Employee:
         """
 
         row = CURSOR.execute(sql, (name,)).fetchone()
-        return cls.new_from_db(row) if row else None
+        return cls.instance_from_db(row) if row else None

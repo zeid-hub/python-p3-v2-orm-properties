@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
-from config import CONN, CURSOR
-import random
+from __init__ import CONN, CURSOR
 from department import Department
 from employee import Employee
-from faker import Faker
 import ipdb
 
 
@@ -20,12 +18,13 @@ def reset_database():
         "Human Resources", "Building C, East Wing")
     departments = [payroll, human_resources]
 
-    fake = Faker()
-    jobs = ["Database Administrator", "Manager",
-            "Full-stack Engineer", "Web Designer"]
-    for i in range(5):
-        Employee.create(fake.name(), random.choice(
-            jobs), random.choice(departments))
+    jobs = ["Accountant", "Manager",
+            "Benefits Coordinator", "New Hires Coordinator"]
+    Employee.create("Amir", jobs[0], departments[0].id)
+    Employee.create("Bola", jobs[1], departments[0].id)
+    Employee.create("Charlie", jobs[1], departments[1].id)
+    Employee.create("Dani", jobs[2], departments[1].id)
+    Employee.create("Hao", jobs[3], departments[1].id)
 
 
 reset_database()
