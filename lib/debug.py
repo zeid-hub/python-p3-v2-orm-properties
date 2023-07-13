@@ -16,15 +16,11 @@ def reset_database():
     payroll = Department.create("Payroll", "Building A, 5th Floor")
     human_resources = Department.create(
         "Human Resources", "Building C, East Wing")
-    departments = [payroll, human_resources]
-
-    jobs = ["Accountant", "Manager",
-            "Benefits Coordinator", "New Hires Coordinator"]
-    Employee.create("Amir", jobs[0], departments[0].id)
-    Employee.create("Bola", jobs[1], departments[0].id)
-    Employee.create("Charlie", jobs[1], departments[1].id)
-    Employee.create("Dani", jobs[2], departments[1].id)
-    Employee.create("Hao", jobs[3], departments[1].id)
+    Employee.create("Amir", "Accountant", payroll.id)
+    Employee.create("Bola", "Manager", payroll.id)
+    Employee.create("Charlie", "Manager", human_resources.id)
+    Employee.create("Dani", "Benefits Coordinator", human_resources.id)
+    Employee.create("Hao", "New Hires Coordinator", human_resources.id)
 
 
 reset_database()
