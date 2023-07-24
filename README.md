@@ -1,4 +1,4 @@
-# ORM Validation and Properties
+# ORM Validation and Properties : Code-Along
 
 ## Learning Goals
 
@@ -57,6 +57,9 @@ from __init__ import CURSOR, CONN
 
 class Department:
 
+    # Dictionary of objects saved to the database.
+    all = {}
+
     def __init__(self, name, location, id=None):
         self.id = id
         self.name = name
@@ -107,6 +110,9 @@ from department import Department
 
 class Employee:
 
+    # Dictionary of objects saved to the database.
+    all = {}
+
     def __init__(self, name, job_title, department, id=None):
         self.id = id
         self.name = name
@@ -119,7 +125,7 @@ class Employee:
             + f"Department: {self.department.name} >"
         )
 
-        @property
+    @property
     def name(self):
         return self._name
 
@@ -175,8 +181,7 @@ You can also use an `ipdb` session to test the properties.
 python lib/debug.py
 ```
 
-The `debug.py` file seeds the tables with random data. We can attempt to assign
-invalid values (NOTE: your data will look different):
+Type each statement one at a time into the `ipbd>` prompt:
 
 ```py
 ipdb> Department.get_all()
@@ -213,7 +218,7 @@ from __init__ import CURSOR, CONN
 
 class Department:
 
-    # Dictionary for mapping a table row to a persisted class instance.
+    # Dictionary of objects saved to the database.
     all = {}
 
     def __init__(self, name, location, id=None):
@@ -252,7 +257,7 @@ class Department:
 
     @classmethod
     def create_table(cls):
-        """ Create a new table to persist the attributes of Department class instances """
+        """ Create a new table to persist the attributes of Department instances """
         sql = """
             CREATE TABLE IF NOT EXISTS departments (
             id INTEGER PRIMARY KEY,
@@ -264,7 +269,7 @@ class Department:
 
     @classmethod
     def drop_table(cls):
-        """ Drop the table that persists Department class instances """
+        """ Drop the table that persists Department instances """
         sql = """
             DROP TABLE IF EXISTS departments;
         """
@@ -288,13 +293,13 @@ class Department:
 
     @classmethod
     def create(cls, name, location):
-        """ Initialize a new Department object and save the object to the database """
+        """ Initialize a new Department instance and save the object to the database """
         department = Department(name, location)
         department.save()
         return department
 
     def update(self):
-        """Update the table row corresponding to the current Department object."""
+        """Update the table row corresponding to the current Department instance."""
         sql = """
             UPDATE departments
             SET name = ?, location = ?
@@ -304,7 +309,7 @@ class Department:
         CONN.commit()
 
     def delete(self):
-        """Delete the table row corresponding to the current Department class instance"""
+        """Delete the table row corresponding to the current Department instance"""
         sql = """
             DELETE FROM departments
             WHERE id = ?
@@ -317,13 +322,13 @@ class Department:
     def instance_from_db(cls, row):
         """Return a Department object having the attribute values from the table row."""
 
-        # Check the dictionary for an existing class instance using the row's primary key
+        # Check the dictionary for an existing instance using the row's primary key
         department = Department.all.get(row[0])
         if department:
-            # ensure attributes match row values in case local object was modified
+            # ensure attributes match row values in case local instance was modified
             department.name = row[1]
             department.location = row[2]
-        # not in dictionary, create new class instance and add to dictionary
+        # not in dictionary, create new instance and add to dictionary
         else:
             department = cls(row[1], row[2])
             department.id = row[0]
@@ -388,7 +393,7 @@ from department import Department
 
 class Employee:
 
-    # Dictionary for mapping a table row to a persisted class instance.
+    # Dictionary of objects saved to the database.
     all = {}
 
     def __init__(self, name, job_title, department_id, id=None):
@@ -401,9 +406,7 @@ class Employee:
         return (
             f"<Employee {self.id}: {self.name}, {self.job_title}, " +
             f"Department ID: {self.department_id}>"
-
         )
-
     @property
     def name(self):
         return self._name
@@ -444,7 +447,7 @@ class Employee:
 
     @classmethod
     def create_table(cls):
-        """ Create a new table to persist the attributes of Employee class instances """
+        """ Create a new table to persist the attributes of Employee instances """
         sql = """
             CREATE TABLE IF NOT EXISTS employees (
             id INTEGER PRIMARY KEY,
@@ -458,7 +461,7 @@ class Employee:
 
     @classmethod
     def drop_table(cls):
-        """ Drop the table that persists Employee class instances """
+        """ Drop the table that persists Employee instances """
         sql = """
             DROP TABLE IF EXISTS employees;
         """
@@ -481,7 +484,7 @@ class Employee:
         Employee.all[self.id] = self
 
     def update(self):
-        """Update the table row corresponding to the current Employee object."""
+        """Update the table row corresponding to the current Employee instance."""
         sql = """
             UPDATE employees
             SET name = ?, job_title = ?, department_id = ?
@@ -492,7 +495,7 @@ class Employee:
         CONN.commit()
 
     def delete(self):
-        """Delete the row corresponding to the current Employee object"""
+        """Delete the row corresponding to the current Employee instance"""
         sql = """
             DELETE FROM employees
             WHERE id = ?
@@ -503,7 +506,7 @@ class Employee:
 
     @classmethod
     def create(cls, name, job_title, department_id):
-        """ Initialize a new Employee object and save the object to the database """
+        """ Initialize a new Employee instance and save the object to the database """
         employee = Employee(name, job_title, department_id)
         employee.save()
         return employee
@@ -512,14 +515,14 @@ class Employee:
     def instance_from_db(cls, row):
         """Return an Employee object having the attribute values from the table row."""
 
-        # Check the dictionary for  existing class instance using the row's primary key
+        # Check the dictionary for  existing instance using the row's primary key
         employee = Employee.all.get(row[0])
         if employee:
-            # ensure attributes match row values in case local object was modified
+            # ensure attributes match row values in case local instance was modified
             employee.name = row[1]
             employee.job_title = row[2]
             employee.department_id = row[3]
-        # not in dictionary, create new class instance and add to dictionary
+        # not in dictionary, create new instance and add to dictionary
         else:
             employee = cls(row[1], row[2], row[3])
             employee.id = row[0]
@@ -561,4 +564,5 @@ class Employee:
 
         row = CURSOR.execute(sql, (name,)).fetchone()
         return cls.instance_from_db(row) if row else None
+
 ```

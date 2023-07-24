@@ -3,7 +3,7 @@ from __init__ import CURSOR, CONN
 
 class Department:
 
-    # Dictionary for mapping a table row to a persisted class instance.
+    # Dictionary of objects saved to the database.
     all = {}
 
     def __init__(self, name, location, id=None):
@@ -16,7 +16,7 @@ class Department:
 
     @classmethod
     def create_table(cls):
-        """ Create a new table to persist the attributes of Department class instances """
+        """ Create a new table to persist the attributes of Department instances """
         sql = """
             CREATE TABLE IF NOT EXISTS departments (
             id INTEGER PRIMARY KEY,
@@ -28,7 +28,7 @@ class Department:
 
     @classmethod
     def drop_table(cls):
-        """ Drop the table that persists Department class instances """
+        """ Drop the table that persists Department instances """
         sql = """
             DROP TABLE IF EXISTS departments;
         """
@@ -52,13 +52,13 @@ class Department:
 
     @classmethod
     def create(cls, name, location):
-        """ Initialize a new Department object and save the object to the database """
+        """ Initialize a new Department instance and save the object to the database """
         department = Department(name, location)
         department.save()
         return department
 
     def update(self):
-        """Update the table row corresponding to the current Department object."""
+        """Update the table row corresponding to the current Department instance."""
         sql = """
             UPDATE departments
             SET name = ?, location = ?
@@ -68,7 +68,7 @@ class Department:
         CONN.commit()
 
     def delete(self):
-        """Delete the table row corresponding to the current Department class instance"""
+        """Delete the table row corresponding to the current Department instance"""
         sql = """
             DELETE FROM departments
             WHERE id = ?
@@ -81,13 +81,13 @@ class Department:
     def instance_from_db(cls, row):
         """Return a Department object having the attribute values from the table row."""
 
-        # Check the dictionary for an existing class instance using the row's primary key
+        # Check the dictionary for an existing instance using the row's primary key
         department = Department.all.get(row[0])
         if department:
-            # ensure attributes match row values in case local object was modified
+            # ensure attributes match row values in case local instance was modified
             department.name = row[1]
             department.location = row[2]
-        # not in dictionary, create new class instance and add to dictionary
+        # not in dictionary, create new instance and add to dictionary
         else:
             department = cls(row[1], row[2])
             department.id = row[0]
